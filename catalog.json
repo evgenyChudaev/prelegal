@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Mutual Non-Disclosure Agreement",
+    "description": "Standard terms for a mutual non-disclosure agreement covering confidentiality obligations, permitted disclosures, term, and return of confidential information.",
+    "filename": "Mutual-NDA.md"
+  },
+  {
+    "name": "Mutual NDA Cover Page",
+    "description": "Cover page template for the Mutual NDA with fill-in fields for party details, purpose, effective date, term, governing law, and signatures.",
+    "filename": "Mutual-NDA-coverpage.md"
+  },
+  {
+    "name": "Cloud Service Agreement",
+    "description": "Comprehensive agreement for cloud-based software services covering access and use, restrictions, privacy and security, payment, term and termination, warranties, liability, indemnification, and confidentiality.",
+    "filename": "CSA.md"
+  },
+  {
+    "name": "Design Partner Agreement",
+    "description": "Agreement for early-access design partner programs covering product access, feedback, fees, term and termination, disclaimer of warranties, confidentiality, and IP assignment of feedback to the provider.",
+    "filename": "design-partner-agreement.md"
+  },
+  {
+    "name": "Service Level Agreement",
+    "description": "Agreement defining uptime commitments, response time obligations, and service credits or remedies for a cloud service.",
+    "filename": "sla.md"
+  },
+  {
+    "name": "Professional Services Agreement",
+    "description": "Agreement for professional services engagements covering statement of work, deliverables, IP ownership (provider assigns deliverables to customer), payment, term and termination, warranties, liability, indemnification, insurance, and confidentiality.",
+    "filename": "psa.md"
+  },
+  {
+    "name": "Data Processing Agreement",
+    "description": "GDPR-compliant data processing agreement covering processor and subprocessor relationships, processing instructions, restricted transfers (EEA SCCs and UK Addendum), security incident response, audit rights, data deletion, and liability.",
+    "filename": "DPA.md"
+  },
+  {
+    "name": "Software License Agreement",
+    "description": "Agreement for licensing software to customers covering license grant, restrictions, payment, term and termination, warranties, disclaimer, liability, indemnification, and confidentiality.",
+    "filename": "Software-License-Agreement.md"
+  },
+  {
+    "name": "Partnership Agreement",
+    "description": "Agreement for business partnerships covering cooperation and obligations, payment, trademark license, privacy, escalation procedure, term and termination, warranties, liability, indemnification, and confidentiality.",
+    "filename": "Partnership-Agreement.md"
+  },
+  {
+    "name": "Pilot Agreement",
+    "description": "Agreement for product pilots and evaluations covering access and use on an AS IS basis, term, termination, disclaimer of warranties, liability, and confidentiality.",
+    "filename": "Pilot-Agreement.md"
+  },
+  {
+    "name": "Business Associate Agreement",
+    "description": "HIPAA-compliant BAA covering business associate obligations (safeguards, subcontractors, individual requests), company obligations, data rights, breach notification, and term and termination.",
+    "filename": "BAA.md"
+  },
+  {
+    "name": "AI Addendum",
+    "description": "Addendum for AI and machine learning services covering permitted use, restrictions, model training controls, IP ownership (customer owns output), personal data obligations, and disclaimers on AI accuracy and output similarity.",
+    "filename": "AI-Addendum.md"
+  }
+]

@@ -66,8 +66,15 @@ export default function PreviewPageClient() {
         </div>
       </div>
 
+      {/* Disclaimer – hidden when printing */}
+      <div className="no-print max-w-4xl mx-auto px-4 mt-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-xs text-amber-800">
+          <strong>Draft document</strong> — AI-generated and has not been reviewed by legal counsel. It should not be relied upon as legal advice.
+        </div>
+      </div>
+
       {/* Document */}
-      <div className="max-w-4xl mx-auto my-8 px-4">
+      <div className="max-w-4xl mx-auto my-4 px-4">
         <div className="bg-white shadow-sm rounded-lg p-12 print-document">
           {documentContent}
         </div>

@@ -63,6 +63,9 @@ export default function NDADocument({ data }: { data: NDAData }) {
 
   return (
     <div className="font-serif text-gray-900 leading-relaxed">
+      <div className="no-print bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-5 text-xs text-amber-800 font-sans">
+        <strong>Draft document</strong> — AI-generated and not reviewed by legal counsel. Not legal advice.
+      </div>
       {/* ── Cover Page ── */}
       <h1 className="text-2xl font-bold text-center mb-1">Mutual Non-Disclosure Agreement</h1>
       <p className="text-center text-xs text-gray-500 mb-6">

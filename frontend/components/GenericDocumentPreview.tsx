@@ -89,6 +89,9 @@ export default function GenericDocumentPreview({
 
   return (
     <div className="font-sans text-gray-900">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 mb-5 text-xs text-amber-800">
+        <strong>Draft document</strong> — AI-generated and not reviewed by legal counsel. Not legal advice.
+      </div>
       <h1 className="text-xl font-bold mb-1" style={{ color: '#032147' }}>
         {docName}
       </h1>

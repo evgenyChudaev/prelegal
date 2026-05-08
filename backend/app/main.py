@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.db import init_db
-from app.routers import auth, chat
+from app.routers import auth, chat, documents
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -22,6 +22,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Prelegal", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(documents.router)
 
 
 @app.get("/api/health")

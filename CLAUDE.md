@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-Today the prototype supports drafting a Mutual NDA from a manual form. AI chat, the remaining catalog document types, and authenticated per-user document persistence are planned (see *Implementation Status* below).
+The prototype supports AI-chat-driven document drafting for all 11 supported document types. Authenticated per-user document persistence is planned (see *Implementation Status* below).
 
 ## Development process
 
@@ -70,9 +70,17 @@ Backend available at http://localhost:8000
   - `backend/app/llm.py` calls `openrouter/openai/gpt-oss-120b` via LiteLLM with Cerebras as the inference provider, using structured outputs (`ChatLLMOutput`) to extract NDA field updates and a completion flag each turn.
   - `backend/app/nda.py` defines `NDAFields` (all optional during chat) and `is_complete()` which overrides the model's self-reported completion flag with a deterministic check.
   - `POST /api/chat/message` and `GET /api/chat/greeting` added in `backend/app/routers/chat.py`.
+- **PL-6** — Extended chat to all 11 catalog document types:
+  - `backend/app/documents.py` — `UniversalDocFields` (Pydantic, covers all 11 doc types), `SUPPORTED_DOCS` registry with required fields / defaults / system prompt per type, `is_complete()` and `get_system_prompt()` dispatchers.
+  - Two-phase conversation: AI first identifies the document type, then collects type-specific fields. If the user asks for an unsupported type, AI explains and suggests the closest match.
+  - `frontend/components/GenericDocumentPreview.tsx` — Live fields-summary preview for all non-NDA document types; NDA continues to use `NDADocument`.
+  - `frontend/components/PreviewPageClient.tsx` — Updated to support download/print for all document types.
+  - `frontend/lib/types.ts` — `GenericDocFields` (TypeScript mirror of `UniversalDocFields`), `DOC_TYPE_NAMES`, `FIELD_LABELS`, `DocStoragePayload`.
+  - UI fix: input focus reliably restored after each AI response via `useEffect` watching `sending`.
+  - AI fix: system prompts now explicitly require a follow-on question whenever required fields are still missing.
+  - 19 backend unit tests added in `backend/tests/`.
 
 ### Planned
-- **PL-6** — Extend the chat to all 11 catalog document types with type-specific preview/PDF components.
 - **PL-7** — Real authentication (bcrypt + JWT HttpOnly cookies) and per-user document persistence (save / load / delete).
 
 ### Implemented API Endpoints
@@ -81,5 +89,5 @@ Backend available at http://localhost:8000
 - `POST /api/auth/signin` — scaffold (PL-4). Same shape as signup. PL-7 will verify against the users table.
 - `POST /api/auth/signout` — clears the `prelegal_session` cookie.
 - `GET /api/auth/me` — returns `{user: null}` until PL-7.
-- `GET /api/chat/greeting` — returns the opening assistant message and an empty `NDAFields` object.
-- `POST /api/chat/message` — accepts `{messages, fields}`, calls the LLM, returns `{reply, fields, complete}`.
+- `GET /api/chat/greeting` — returns the opening assistant message and an empty `UniversalDocFields` object.
+- `POST /api/chat/message` — accepts `{messages, fields: UniversalDocFields}`, calls the LLM, returns `{reply, fields, complete}`. The `fields.documentType` field drives which system prompt is used.

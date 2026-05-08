@@ -3,33 +3,43 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import NDADocument from './NDADocument'
-import type { NDAData } from '@/lib/types'
-import { NDA_STORAGE_KEY } from '@/lib/types'
+import GenericDocumentPreview from './GenericDocumentPreview'
+import { DOC_STORAGE_KEY, DOC_TYPE_NAMES, mergeNDAFields, type DocStoragePayload } from '@/lib/types'
 
 export default function PreviewPageClient() {
   const router = useRouter()
-  const [data, setData] = useState<NDAData | null>(null)
+  const [payload, setPayload] = useState<DocStoragePayload | null>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem(NDA_STORAGE_KEY)
+    const stored = localStorage.getItem(DOC_STORAGE_KEY)
     if (!stored) {
       router.replace('/')
       return
     }
     try {
-      setData(JSON.parse(stored) as NDAData)
+      setPayload(JSON.parse(stored) as DocStoragePayload)
     } catch {
       router.replace('/')
     }
   }, [router])
 
-  if (!data) {
+  if (!payload) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-500 text-sm">Loading document...</p>
       </div>
     )
   }
+
+  const { documentType, fields } = payload
+  const docName = DOC_TYPE_NAMES[documentType] ?? 'Legal Document'
+
+  const documentContent =
+    documentType === 'mutual_nda' ? (
+      <NDADocument data={mergeNDAFields(fields)} />
+    ) : (
+      <GenericDocumentPreview fields={fields} />
+    )
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -44,11 +54,12 @@ export default function PreviewPageClient() {
               ← Back to chat
             </button>
             <span className="text-gray-300 select-none">|</span>
-            <span className="text-sm font-medium text-gray-700">Mutual NDA Preview</span>
+            <span className="text-sm font-medium text-gray-700">{docName} Preview</span>
           </div>
           <button
             onClick={() => window.print()}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
+            className="text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer hover:opacity-90"
+            style={{ backgroundColor: '#753991' }}
           >
             Download PDF
           </button>
@@ -58,7 +69,7 @@ export default function PreviewPageClient() {
       {/* Document */}
       <div className="max-w-4xl mx-auto my-8 px-4">
         <div className="bg-white shadow-sm rounded-lg p-12 print-document">
-          <NDADocument data={data} />
+          {documentContent}
         </div>
       </div>
     </div>

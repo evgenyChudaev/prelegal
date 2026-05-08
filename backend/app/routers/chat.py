@@ -4,16 +4,19 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.documents import UniversalDocFields
 from app.llm import call_chat_llm
-from app.nda import NDAFields
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 GREETING = (
-    "Hi! I'll help you draft a Mutual NDA. To get started, what's the name and title "
-    "of the first signatory, and which company do they represent?"
+    "Hi! I can help you draft a legal agreement. What type of document do you need? "
+    "I can help with Mutual NDAs, Cloud Service Agreements, Design Partner Agreements, "
+    "Service Level Agreements, Professional Services Agreements, Data Processing Agreements, "
+    "Software License Agreements, Partnership Agreements, Pilot Agreements, Business Associate "
+    "Agreements, and AI Addendums. If you're not sure, just describe what you need!"
 )
 
 
@@ -24,23 +27,23 @@ class ChatTurn(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatTurn]
-    fields: NDAFields = NDAFields()
+    fields: UniversalDocFields = UniversalDocFields()
 
 
 class ChatResponse(BaseModel):
     reply: str
-    fields: NDAFields
+    fields: UniversalDocFields
     complete: bool
 
 
 class GreetingResponse(BaseModel):
     reply: str
-    fields: NDAFields
+    fields: UniversalDocFields
 
 
 @router.get("/greeting", response_model=GreetingResponse)
 def greeting() -> GreetingResponse:
-    return GreetingResponse(reply=GREETING, fields=NDAFields())
+    return GreetingResponse(reply=GREETING, fields=UniversalDocFields())
 
 
 @router.post("/message", response_model=ChatResponse)

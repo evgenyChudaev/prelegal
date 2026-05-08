@@ -1,5 +1,5 @@
-import NDAForm from '@/components/NDAForm'
+import NDAChat from '@/components/NDAChat'
 
 export default function Home() {
-  return <NDAForm />
+  return <NDAChat />
 }

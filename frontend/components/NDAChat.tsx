@@ -11,12 +11,14 @@ import {
   mergeNDAFields,
   type ChatSession,
   type GenericDocFields,
+  type User,
 } from '@/lib/types'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
 export default function NDAChat() {
   const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [fields, setFields] = useState<GenericDocFields>({})
   const [complete, setComplete] = useState(false)
@@ -24,39 +26,47 @@ export default function NDAChat() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const savedRef = useRef(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
 
-  // Restore session or fetch greeting on mount.
+  // Auth guard + greeting on mount.
   useEffect(() => {
-    const saved = sessionStorage.getItem(CHAT_SESSION_KEY)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as ChatSession
-        if (parsed.messages?.length) {
-          setMessages(parsed.messages)
-          setFields(parsed.fields ?? {})
-          setComplete(!!parsed.complete)
-          setHydrated(true)
-          return
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data: { user: User | null }) => {
+        if (!data.user) { router.replace('/auth'); return }
+        setUser(data.user)
+
+        const saved = sessionStorage.getItem(CHAT_SESSION_KEY)
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved) as ChatSession
+            if (parsed.messages?.length) {
+              setMessages(parsed.messages)
+              setFields(parsed.fields ?? {})
+              setComplete(!!parsed.complete)
+              savedRef.current = !!parsed.complete
+              setHydrated(true)
+              return
+            }
+          } catch { /* fall through */ }
         }
-      } catch {
-        /* fall through to fetch */
-      }
-    }
 
-    fetch('/api/chat/greeting')
-      .then(async (r) => {
-        if (!r.ok) throw new Error('greeting failed')
-        const data = await r.json()
-        setMessages([{ role: 'assistant', content: data.reply }])
-        setFields(data.fields ?? {})
+        fetch('/api/chat/greeting')
+          .then(async (r) => {
+            if (!r.ok) throw new Error()
+            const d = await r.json()
+            setMessages([{ role: 'assistant', content: d.reply }])
+            setFields(d.fields ?? {})
+          })
+          .catch(() => setError('Could not load greeting. Is the chat service running?'))
+          .finally(() => setHydrated(true))
       })
-      .catch(() => setError('Could not load greeting. Is the chat service running?'))
-      .finally(() => setHydrated(true))
-  }, [])
+      .catch(() => router.replace('/auth'))
+  }, [router])
 
-  // Persist to sessionStorage so navigating to /preview and back keeps state.
+  // Persist session to sessionStorage.
   useEffect(() => {
     if (!hydrated) return
     sessionStorage.setItem(
@@ -65,17 +75,27 @@ export default function NDAChat() {
     )
   }, [hydrated, messages, fields, complete])
 
-  // Scroll chat to bottom when messages change.
+  // Auto-save when the document is first marked complete.
+  useEffect(() => {
+    if (!complete || savedRef.current || !user) return
+    savedRef.current = true
+    const docType = fields.documentType ?? 'mutual_nda'
+    fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentType: docType, fields }),
+    }).catch(() => { /* silent — user can still download */ })
+  }, [complete, fields, user])
+
+  // Scroll chat to bottom.
   useEffect(() => {
     const el = messagesRef.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
 
-  // Restore focus to input after each AI response.
+  // Restore focus after AI response.
   useEffect(() => {
-    if (!sending && hydrated) {
-      inputRef.current?.focus()
-    }
+    if (!sending && hydrated) inputRef.current?.focus()
   }, [sending, hydrated])
 
   const send = async () => {
@@ -114,9 +134,17 @@ export default function NDAChat() {
     router.push('/preview')
   }
 
+  const signOut = async () => {
+    await fetch('/api/auth/signout', { method: 'POST' })
+    sessionStorage.removeItem(CHAT_SESSION_KEY)
+    localStorage.removeItem(DOC_STORAGE_KEY)
+    router.push('/auth')
+  }
+
   const newDocument = () => {
     sessionStorage.removeItem(CHAT_SESSION_KEY)
     localStorage.removeItem(DOC_STORAGE_KEY)
+    savedRef.current = false
     setMessages([])
     setFields({})
     setComplete(false)
@@ -124,10 +152,10 @@ export default function NDAChat() {
     setHydrated(false)
     fetch('/api/chat/greeting')
       .then(async (r) => {
-        if (!r.ok) throw new Error('greeting failed')
-        const data = await r.json()
-        setMessages([{ role: 'assistant', content: data.reply }])
-        setFields(data.fields ?? {})
+        if (!r.ok) throw new Error()
+        const d = await r.json()
+        setMessages([{ role: 'assistant', content: d.reply }])
+        setFields(d.fields ?? {})
       })
       .catch(() => setError('Could not load greeting. Is the chat service running?'))
       .finally(() => setHydrated(true))
@@ -145,9 +173,9 @@ export default function NDAChat() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: '#032147' }}>
+          <h1 className="text-xl font-bold" style={{ color: 'var(--brand-navy)' }}>
             Prelegal
           </h1>
           <p className="text-sm text-gray-500">
@@ -157,27 +185,52 @@ export default function NDAChat() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={newDocument}
-            className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md cursor-pointer"
+            onClick={() => router.push('/documents')}
+            className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md cursor-pointer transition-colors"
           >
-            New document
+            My Documents
+          </button>
+          <button
+            type="button"
+            onClick={newDocument}
+            className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md cursor-pointer transition-colors"
+          >
+            New
           </button>
           <button
             type="button"
             onClick={downloadPDF}
             disabled={!complete}
-            style={complete ? { backgroundColor: '#753991' } : undefined}
+            style={complete ? { backgroundColor: 'var(--brand-purple)' } : undefined}
             className="disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer hover:opacity-90"
             title={complete ? 'Open print preview' : 'Provide all required details first'}
           >
             Download PDF
           </button>
+          <div className="h-5 w-px bg-gray-200 mx-1" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 hidden sm:block">{user?.email}</span>
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded cursor-pointer transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 max-w-7xl mx-auto w-full min-h-0">
-        <section className="flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm h-[calc(100vh-8.5rem)]">
+        <section className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm h-[calc(100vh-8.5rem)]">
           <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && !hydrated && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 text-gray-400 rounded-lg px-4 py-2 text-sm italic">
+                  Loading…
+                </div>
+              </div>
+            )}
             {messages.map((m, i) => (
               <div
                 key={i}
@@ -186,10 +239,10 @@ export default function NDAChat() {
                 <div
                   className={
                     m.role === 'user'
-                      ? 'text-white rounded-lg px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
-                      : 'bg-gray-100 text-gray-900 rounded-lg px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
+                      ? 'text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
+                      : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
                   }
-                  style={m.role === 'user' ? { backgroundColor: '#209dd7' } : undefined}
+                  style={m.role === 'user' ? { backgroundColor: 'var(--brand-blue)' } : undefined}
                 >
                   {m.content}
                 </div>
@@ -197,8 +250,17 @@ export default function NDAChat() {
             ))}
             {sending && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-500 rounded-lg px-4 py-2 text-sm italic">
-                  Thinking…
+                <div className="bg-gray-100 text-gray-400 rounded-2xl rounded-tl-sm px-4 py-2 text-sm flex gap-1 items-center">
+                  <span className="animate-bounce delay-0">•</span>
+                  <span className="animate-bounce delay-75">•</span>
+                  <span className="animate-bounce delay-150">•</span>
+                </div>
+              </div>
+            )}
+            {complete && (
+              <div className="flex justify-center">
+                <div className="text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-full px-3 py-1">
+                  Document complete — saved to My Documents
                 </div>
               </div>
             )}
@@ -209,10 +271,7 @@ export default function NDAChat() {
             </div>
           )}
           <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              send()
-            }}
+            onSubmit={(e) => { e.preventDefault(); send() }}
             className="border-t border-gray-200 p-3 flex gap-2"
           >
             <textarea
@@ -220,30 +279,27 @@ export default function NDAChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  send()
-                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
               }}
               rows={2}
               placeholder="Type your message and press Enter…"
               disabled={sending || !hydrated}
               autoFocus
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
-              style={{ '--tw-ring-color': '#209dd7' } as React.CSSProperties}
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
+              style={{ '--tw-ring-color': 'var(--brand-blue)' } as React.CSSProperties}
             />
             <button
               type="submit"
               disabled={sending || !input.trim() || !hydrated}
-              className="disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
-              style={!sending && input.trim() && hydrated ? { backgroundColor: '#209dd7' } : undefined}
+              className="disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+              style={!sending && input.trim() && hydrated ? { backgroundColor: 'var(--brand-blue)' } : undefined}
             >
               Send
             </button>
           </form>
         </section>
 
-        <section className="bg-white border border-gray-200 rounded-lg shadow-sm h-[calc(100vh-8.5rem)] overflow-y-auto p-6">
+        <section className="bg-white border border-gray-200 rounded-xl shadow-sm h-[calc(100vh-8.5rem)] overflow-y-auto p-6">
           {preview}
         </section>
       </main>

@@ -84,6 +84,23 @@ export interface GenericDocFields {
   evaluationPurposes?: string | null
 }
 
+// ─── Auth types ───────────────────────────────────────────────────────────────
+
+export type User = {
+  id: number
+  email: string
+}
+
+// ─── Saved document types ─────────────────────────────────────────────────────
+
+export type SavedDocument = {
+  id: number
+  documentType: string
+  fields: GenericDocFields
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 export const CHAT_SESSION_KEY = 'prelegal_chat_session'

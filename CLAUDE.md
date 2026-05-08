@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The prototype supports AI-chat-driven document drafting for all 11 supported document types. Authenticated per-user document persistence is planned (see *Implementation Status* below).
+The product supports AI-chat-driven document drafting for all 11 supported document types with full user authentication and per-user document persistence.
 
 ## Development process
 
@@ -61,10 +61,10 @@ Backend available at http://localhost:8000
 - **PL-3** — Next.js NDA creator prototype (superseded by PL-5/PL-6): established the `NDADocument` renderer and PDF print flow that remain in use today.
 - **PL-4** — V1 technical foundation:
   - FastAPI backend in `backend/` (uv-managed, Python 3.12) serving the Next.js static export from the same origin on `:8000`.
-  - SQLite `users` table created fresh on each container start (path: `/tmp/prelegal.db`).
+  - SQLite DB created fresh on each container start (path: `/tmp/prelegal.db`).
   - Multi-stage Dockerfile (Node build → Python runtime).
   - `scripts/start-{mac,linux}.sh`, `scripts/start-windows.ps1`, and matching stop scripts. Override the host port with `PRELEGAL_PORT`.
-  - Auth routes (`POST /api/auth/{signup,signin,signout}`, `GET /api/auth/me`) wired up as scaffolds — they validate input but don't yet persist or authenticate. PL-7 will replace them with bcrypt + JWT.
+  - Auth routes (`POST /api/auth/{signup,signin,signout}`, `GET /api/auth/me`) scaffolded; replaced with real implementation in PL-7.
 - **PL-5** — AI chat replaces the manual NDA form:
   - `NDAChat` React component (`frontend/components/NDAChat.tsx`) drives a conversational UI; sends full message history + current fields to the backend each turn and updates the live document preview as fields are populated.
   - `backend/app/llm.py` calls `openrouter/openai/gpt-oss-120b` via LiteLLM with Cerebras as the inference provider, using structured outputs (`ChatLLMOutput`) to extract field updates and a completion flag each turn.
@@ -79,14 +79,30 @@ Backend available at http://localhost:8000
   - AI fix: system prompts now explicitly require a follow-on question whenever required fields are still missing.
   - 19 backend unit tests added in `backend/tests/`.
 
+- **PL-7** — Authentication, per-user document persistence, and UI polish:
+  - `backend/app/auth_utils.py` — `hash_password` / `verify_password` (bcrypt), `create_jwt` / `decode_jwt` (HS256, 7-day expiry via python-jose), `get_current_user` FastAPI dependency reading the `prelegal_session` HttpOnly cookie.
+  - Auth routes fully implemented: signup persists user with bcrypt hash and issues JWT cookie; signin verifies password; `/me` decodes cookie and returns `{id, email}`.
+  - `backend/app/routers/documents.py` — CRUD for saved documents: `GET /api/documents` (list), `POST /api/documents` (save), `GET /api/documents/{id}`, `DELETE /api/documents/{id}`; all require a valid session.
+  - SQLite `documents` table: `id, user_id, document_type, fields_json, created_at, updated_at`.
+  - `frontend/app/auth/page.tsx` — Sign In / Sign Up single page with tabs, inline error messages.
+  - `frontend/app/documents/page.tsx` — "My Documents" grid: doc type, creation date, Open (→ print preview) and Delete buttons.
+  - `NDAChat` auth guard on mount (redirects to `/auth` if unauthenticated), user email + Sign Out in header, "My Documents" nav link, auto-save when chat completes (fires once via `savedRef`).
+  - Draft disclaimer amber banner added to `GenericDocumentPreview`, `NDADocument`, and `PreviewPageClient` (suppressed in print via `.no-print`).
+  - Brand colors defined as CSS variables in `globals.css`; layout metadata updated.
+  - 36 backend tests: 8 auth, 9 document API, 19 pre-existing — all pass. `tests/conftest.py` initialises a temp SQLite DB per test session.
+
 ### Planned
-- **PL-7** — Real authentication (bcrypt + JWT HttpOnly cookies) and per-user document persistence (save / load / delete).
+- No planned items — all features complete.
 
 ### Implemented API Endpoints
 - `GET /api/health` — health check.
-- `POST /api/auth/signup` — scaffold (PL-4). Accepts `{email, password}`, returns `{ok: true, email}`. PL-7 will persist with bcrypt and issue a JWT cookie.
-- `POST /api/auth/signin` — scaffold (PL-4). Same shape as signup. PL-7 will verify against the users table.
+- `POST /api/auth/signup` — accepts `{email, password}`, hashes password with bcrypt, inserts user, issues `prelegal_session` JWT cookie; 409 if email already registered.
+- `POST /api/auth/signin` — verifies password against stored hash, issues JWT cookie; 401 on mismatch.
 - `POST /api/auth/signout` — clears the `prelegal_session` cookie.
-- `GET /api/auth/me` — returns `{user: null}` until PL-7.
+- `GET /api/auth/me` — decodes JWT cookie, returns `{user: {id, email}}`; 401 if no/invalid cookie.
 - `GET /api/chat/greeting` — returns the opening assistant message and an empty `UniversalDocFields` object.
 - `POST /api/chat/message` — accepts `{messages, fields: UniversalDocFields}`, calls the LLM, returns `{reply, fields, complete}`. The `fields.documentType` field drives which system prompt is used.
+- `GET /api/documents` — lists the authenticated user's saved documents (newest first).
+- `POST /api/documents` — saves `{documentType, fields}` for the authenticated user; returns the created document with id and timestamps.
+- `GET /api/documents/{id}` — returns a single document; 404 if not found or belongs to another user.
+- `DELETE /api/documents/{id}` — deletes a document; 404 if not found or belongs to another user.

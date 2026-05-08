@@ -58,7 +58,7 @@ Backend available at http://localhost:8000
 
 ### Completed
 - **PL-2** — CommonPaper legal templates checked into `templates/`; `catalog.json` indexes the 11 supported document types.
-- **PL-3** — Next.js NDA creator prototype in `frontend/`: Mutual NDA form with live preview and client-side PDF download.
+- **PL-3** — Next.js NDA creator prototype (superseded by PL-5/PL-6): established the `NDADocument` renderer and PDF print flow that remain in use today.
 - **PL-4** — V1 technical foundation:
   - FastAPI backend in `backend/` (uv-managed, Python 3.12) serving the Next.js static export from the same origin on `:8000`.
   - SQLite `users` table created fresh on each container start (path: `/tmp/prelegal.db`).
@@ -66,9 +66,8 @@ Backend available at http://localhost:8000
   - `scripts/start-{mac,linux}.sh`, `scripts/start-windows.ps1`, and matching stop scripts. Override the host port with `PRELEGAL_PORT`.
   - Auth routes (`POST /api/auth/{signup,signin,signout}`, `GET /api/auth/me`) wired up as scaffolds — they validate input but don't yet persist or authenticate. PL-7 will replace them with bcrypt + JWT.
 - **PL-5** — AI chat replaces the manual NDA form:
-  - `NDAChat` React component (`frontend/components/NDAChat.tsx`) drives a conversational UI; sends message history + current fields to the backend each turn and updates the live NDA preview as fields are populated.
-  - `backend/app/llm.py` calls `openrouter/openai/gpt-oss-120b` via LiteLLM with Cerebras as the inference provider, using structured outputs (`ChatLLMOutput`) to extract NDA field updates and a completion flag each turn.
-  - `backend/app/nda.py` defines `NDAFields` (all optional during chat) and `is_complete()` which overrides the model's self-reported completion flag with a deterministic check.
+  - `NDAChat` React component (`frontend/components/NDAChat.tsx`) drives a conversational UI; sends full message history + current fields to the backend each turn and updates the live document preview as fields are populated.
+  - `backend/app/llm.py` calls `openrouter/openai/gpt-oss-120b` via LiteLLM with Cerebras as the inference provider, using structured outputs (`ChatLLMOutput`) to extract field updates and a completion flag each turn.
   - `POST /api/chat/message` and `GET /api/chat/greeting` added in `backend/app/routers/chat.py`.
 - **PL-6** — Extended chat to all 11 catalog document types:
   - `backend/app/documents.py` — `UniversalDocFields` (Pydantic, covers all 11 doc types), `SUPPORTED_DOCS` registry with required fields / defaults / system prompt per type, `is_complete()` and `get_system_prompt()` dispatchers.

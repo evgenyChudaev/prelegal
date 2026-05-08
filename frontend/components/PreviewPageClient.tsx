@@ -41,7 +41,7 @@ export default function PreviewPageClient() {
               onClick={() => router.push('/')}
               className="text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
             >
-              ← Back to Form
+              ← Back to chat
             </button>
             <span className="text-gray-300 select-none">|</span>
             <span className="text-sm font-medium text-gray-700">Mutual NDA Preview</span>

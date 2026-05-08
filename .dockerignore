@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/out
+**/__pycache__
+**/.venv
+**/.pytest_cache
+.git
+.gitignore
+.claude
+README.md
+*.md
+!frontend/**/*.md
+templates/

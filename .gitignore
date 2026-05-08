@@ -67,7 +67,6 @@ pnpm-debug.log*
 .pnpm-store/
 
 # Package managers
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -95,8 +94,8 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Docker
-.dockerignore
+# Claude Code local config
+.claude/
 
 # Secrets / credentials
 *.pem

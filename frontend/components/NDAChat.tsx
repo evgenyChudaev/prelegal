@@ -3,25 +3,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import NDADocument from './NDADocument'
+import GenericDocumentPreview from './GenericDocumentPreview'
 import {
   CHAT_SESSION_KEY,
-  NDA_STORAGE_KEY,
+  DOC_STORAGE_KEY,
+  DOC_TYPE_NAMES,
   mergeNDAFields,
-  type PartialNDAData,
+  type ChatSession,
+  type GenericDocFields,
 } from '@/lib/types'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
-type SessionState = {
-  messages: Message[]
-  fields: PartialNDAData
-  complete: boolean
-}
-
 export default function NDAChat() {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([])
-  const [fields, setFields] = useState<PartialNDAData>({})
+  const [fields, setFields] = useState<GenericDocFields>({})
   const [complete, setComplete] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -35,7 +32,7 @@ export default function NDAChat() {
     const saved = sessionStorage.getItem(CHAT_SESSION_KEY)
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as SessionState
+        const parsed = JSON.parse(saved) as ChatSession
         if (parsed.messages?.length) {
           setMessages(parsed.messages)
           setFields(parsed.fields ?? {})
@@ -64,7 +61,7 @@ export default function NDAChat() {
     if (!hydrated) return
     sessionStorage.setItem(
       CHAT_SESSION_KEY,
-      JSON.stringify({ messages, fields, complete } satisfies SessionState),
+      JSON.stringify({ messages, fields, complete } satisfies ChatSession),
     )
   }, [hydrated, messages, fields, complete])
 
@@ -73,6 +70,13 @@ export default function NDAChat() {
     const el = messagesRef.current
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [messages, sending])
+
+  // Restore focus to input after each AI response.
+  useEffect(() => {
+    if (!sending && hydrated) {
+      inputRef.current?.focus()
+    }
+  }, [sending, hydrated])
 
   const send = async () => {
     const text = input.trim()
@@ -93,7 +97,7 @@ export default function NDAChat() {
         setError(typeof body.detail === 'string' ? body.detail : 'Request failed')
         return
       }
-      const data = (await r.json()) as { reply: string; fields: PartialNDAData; complete: boolean }
+      const data = (await r.json()) as { reply: string; fields: GenericDocFields; complete: boolean }
       setMessages([...next, { role: 'assistant', content: data.reply }])
       setFields(data.fields ?? {})
       setComplete(!!data.complete)
@@ -101,18 +105,18 @@ export default function NDAChat() {
       setError('Could not connect to the chat service.')
     } finally {
       setSending(false)
-      setTimeout(() => inputRef.current?.focus(), 0)
     }
   }
 
   const downloadPDF = () => {
-    const merged = mergeNDAFields(fields)
-    localStorage.setItem(NDA_STORAGE_KEY, JSON.stringify(merged))
+    const docType = fields.documentType ?? 'mutual_nda'
+    localStorage.setItem(DOC_STORAGE_KEY, JSON.stringify({ documentType: docType, fields }))
     router.push('/preview')
   }
 
   const newDocument = () => {
     sessionStorage.removeItem(CHAT_SESSION_KEY)
+    localStorage.removeItem(DOC_STORAGE_KEY)
     setMessages([])
     setFields({})
     setComplete(false)
@@ -129,14 +133,26 @@ export default function NDAChat() {
       .finally(() => setHydrated(true))
   }
 
-  const previewData = mergeNDAFields(fields)
+  const docType = fields.documentType
+  const docLabel = docType ? (DOC_TYPE_NAMES[docType] ?? docType) : null
+
+  const preview =
+    docType === 'mutual_nda' ? (
+      <NDADocument data={mergeNDAFields(fields)} />
+    ) : (
+      <GenericDocumentPreview fields={fields} />
+    )
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Prelegal</h1>
-          <p className="text-sm text-gray-500">Mutual NDA Creator</p>
+          <h1 className="text-xl font-bold" style={{ color: '#032147' }}>
+            Prelegal
+          </h1>
+          <p className="text-sm text-gray-500">
+            {docLabel ?? 'Legal Document Creator'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -150,7 +166,8 @@ export default function NDAChat() {
             type="button"
             onClick={downloadPDF}
             disabled={!complete}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer"
+            style={complete ? { backgroundColor: '#753991' } : undefined}
+            className="disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer hover:opacity-90"
             title={complete ? 'Open print preview' : 'Provide all required details first'}
           >
             Download PDF
@@ -169,9 +186,10 @@ export default function NDAChat() {
                 <div
                   className={
                     m.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-lg px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
+                      ? 'text-white rounded-lg px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
                       : 'bg-gray-100 text-gray-900 rounded-lg px-4 py-2 max-w-[80%] text-sm whitespace-pre-wrap'
                   }
+                  style={m.role === 'user' ? { backgroundColor: '#209dd7' } : undefined}
                 >
                   {m.content}
                 </div>
@@ -211,12 +229,14 @@ export default function NDAChat() {
               placeholder="Type your message and press Enter…"
               disabled={sending || !hydrated}
               autoFocus
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none"
+              style={{ '--tw-ring-color': '#209dd7' } as React.CSSProperties}
             />
             <button
               type="submit"
               disabled={sending || !input.trim() || !hydrated}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 rounded-md cursor-pointer"
+              className="disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium px-4 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+              style={!sending && input.trim() && hydrated ? { backgroundColor: '#209dd7' } : undefined}
             >
               Send
             </button>
@@ -224,7 +244,7 @@ export default function NDAChat() {
         </section>
 
         <section className="bg-white border border-gray-200 rounded-lg shadow-sm h-[calc(100vh-8.5rem)] overflow-y-auto p-6">
-          <NDADocument data={previewData} />
+          {preview}
         </section>
       </main>
     </div>

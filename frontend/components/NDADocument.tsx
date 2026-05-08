@@ -1,5 +1,7 @@
 import type { NDAData } from '@/lib/types'
 
+const CC_FOOTER = 'Common Paper Mutual Non-Disclosure Agreement (Version 1.0) free to use under CC BY 4.0.'
+
 function formatDate(isoDate: string): string {
   if (!isoDate) return ''
   const [year, month, day] = isoDate.split('-').map(Number)
@@ -169,9 +171,7 @@ export default function NDADocument({ data }: { data: NDAData }) {
         </tbody>
       </table>
 
-      <p className="text-xs text-gray-500 text-center mb-2">
-        Common Paper Mutual Non-Disclosure Agreement (Version 1.0) free to use under CC BY 4.0.
-      </p>
+      <p className="text-xs text-gray-500 text-center mb-2">{CC_FOOTER}</p>
 
       {/* ── Standard Terms ── */}
       <div className="print-page-break">
@@ -301,9 +301,7 @@ export default function NDADocument({ data }: { data: NDAData }) {
           </p>
         </div>
 
-        <p className="text-xs text-gray-500 mt-6 text-center">
-          Common Paper Mutual Non-Disclosure Agreement Version 1.0 free to use under CC BY 4.0.
-        </p>
+        <p className="text-xs text-gray-500 mt-6 text-center">{CC_FOOTER}</p>
       </div>
     </div>
   )
